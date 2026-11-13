@@ -1,0 +1,124 @@
+---
+title: "Analysis of World Castles"
+format: 
+    html:
+        embed-resources: true
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+# Summary
+
+In this analysis, we will explore the World Castle dataset from TidyTuesday. We will examine the distribution of castle categories across different countries, visualize their geographical locations, and analyze the timeline of castle construction. Additionally, we will take a closer look at some of the oldest structures in Hungary.
+
+```{r}
+library(tidyverse)
+library(skimr)
+library(ggimage)
+```
+
+# Read data
+
+First, we will read the dataset from the provided URL.
+
+```{r}
+castles <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2026/2026-09-01/world_castles.csv')
+
+```
+
+# Explore the data
+
+Then, we will explore the structure and summary of the dataset using `glimpse()` and `skim()` functions.
+
+```{r}
+glimpse(castles)
+skim(castles)
+```
+
+
+Let's explore the distribution of castle categories and their counts by country.
+
+```{r}
+castles |> 
+    count(category)
+
+castles |> 
+    count(country, sort = TRUE)
+    
+country_by_cat <-
+    castles |> 
+    count(category, country, sort = TRUE) |> 
+    group_by(country) |> 
+    mutate(all_n = sum(n)) |> 
+    ungroup() |> 
+    arrange(-all_n)
+    
+country_by_cat |> 
+    pivot_wider(names_from = category, values_from = n)
+```
+
+
+We can also visualize the density of buildings by country using a heatmap.
+
+```{r}
+country_by_cat |> 
+    filter(all_n > 100) |> 
+    ggplot() +
+    aes(x = category, y = country, fill = n) +
+    geom_tile() +
+    labs(x = NULL, y = NULL, fill = "# buildings",
+         title = "Density of buildings by country",
+         subtitle = "Contains countries with more than 100 buildings") +
+    theme_minimal() +
+    scale_fill_viridis_c(option = "magma")
+```
+
+# Explore location of the castles
+
+```{r}
+world <- map_data("world")
+
+ggplot() +
+    geom_polygon(data = world, aes(x = long, y = lat, group = group),
+                 fill = "gray60") +
+    geom_point(data = castles, aes(x = lon, y = lat, color = category),
+               alpha = .5) +
+    scale_color_viridis_d() +
+    coord_fixed() +
+    theme_void() +
+    labs(title = "      Castles, fortresses, etc. around the world",
+         color = "Structure type") +
+    theme(legend.position = "bottom")
+
+```
+
+# Explore the timeline
+
+We can also explore the timeline of castle construction by creating a histogram of the years in which the castles were built.
+
+```{r}
+castles |> 
+    ggplot() +
+    aes(x = year) +
+    geom_histogram()
+```
+
+# Structures from Hungary
+
+Finally, we will take a closer look at some of the oldest structures in Hungary. We will filter the dataset for castles located in Hungary, arrange them by year, and visualize the oldest 10 structures using their images.
+
+```{r}
+castles |> 
+    filter(country == "Hungary") |> 
+    arrange(year) |> 
+    head(10) |> 
+    mutate(name = fct_reorder(name, year)) |> 
+    ggplot() +
+    aes(x = year, y = name, image = image) +
+    geom_image(size = .15) +
+    labs(x = NULL, y = NULL, title = "Oldest Structures in Hungary") +
+    theme_minimal()
+
+```
+
